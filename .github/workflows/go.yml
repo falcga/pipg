@@ -30,7 +30,6 @@ jobs:
         with:
           go-version: '1.21'
 
-      # Create go.mod if it doesn't exist and fetch deps
       - name: Prepare Go module
         run: |
           if [ ! -f go.mod ]; then
@@ -38,7 +37,6 @@ jobs:
           fi
           go get golang.org/x/sys/unix
 
-      # This step will now succeed without compilation errors
       - name: Build
         env:
           GOOS: ${{ matrix.os }}
@@ -59,7 +57,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Download all binaries
         uses: actions/download-artifact@v4
@@ -78,5 +76,6 @@ jobs:
             dist/pipg-*
             dist/checksums.txt
           generate_release_notes: true
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('manual-{0}', github.run_number) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
