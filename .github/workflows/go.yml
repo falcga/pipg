@@ -4,18 +4,17 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: 
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build and release
+    name: Build (${{ matrix.os }}/${{ matrix.arch }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-
         include:
           - os: linux
             arch: amd64
@@ -25,47 +24,53 @@ jobs:
             arch: amd64
           - os: darwin
             arch: arm64
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21' 
+          go-version: '1.21'
 
-      - name: Build binary
+      # Create go.mod if it doesn't exist and fetch deps
+      - name: Prepare Go module
+        run: |
+          if [ ! -f go.mod ]; then
+            go mod init pipg
+          fi
+          go get golang.org/x/sys/unix
+
+      - name: Build
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: 0    
+          CGO_ENABLED: 0
         run: |
           go build -ldflags="-s -w" -o pipg .
-          # rename binary to include OS and ARCH
           mv pipg pipg-${{ matrix.os }}-${{ matrix.arch }}
 
-      - name: Upload artifacts (for manual runs or debugging)
+      - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
         with:
           name: pipg-${{ matrix.os }}-${{ matrix.arch }}
           path: pipg-${{ matrix.os }}-${{ matrix.arch }}
           if-no-files-found: error
 
-      - name: Store binary for checksum generation
-        run: |
-          mkdir -p dist
-          cp pipg-${{ matrix.os }}-${{ matrix.arch }} dist/
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
 
       - name: Generate checksums
-        if: matrix.os == 'linux' && matrix.arch == 'amd64'  
         run: |
           cd dist
-          sha256sum pipg-* > checksums.txt
-          cat checksums.txt
+          find . -type f -name "pipg-*" -exec sha256sum {} \; | sed 's|./||' > checksums.txt
 
-      - name: Upload all binaries and checksums to release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
