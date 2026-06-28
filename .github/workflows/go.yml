@@ -63,6 +63,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
+          merge-multiple: true # This forces all files into the root of 'dist'
 
       - name: Generate checksums
         run: |
