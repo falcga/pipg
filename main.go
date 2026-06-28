@@ -46,7 +46,7 @@ func icmpChecksum(data []byte) uint16 {
 	return uint16(^sum)
 }
 
-func runSend(destIP string, tunnelID uint16, message string) error {
+func runSend(destHost string, tunnelID uint16, message string) error {
 	compressed := &bytes.Buffer{}
 	w := zlib.NewWriter(compressed)
 	if _, err := w.Write([]byte(message)); err != nil {
@@ -66,10 +66,22 @@ func runSend(destIP string, tunnelID uint16, message string) error {
 	}
 	defer unix.Close(fd)
 
-	dest := net.ParseIP(destIP).To4()
-	if dest == nil {
-		return fmt.Errorf("invalid IP")
+	// REQ-1 & REQ-2: Resolve FQDN or literal IP address to IPv4
+	ips, err := net.LookupIP(destHost)
+	if err != nil {
+		return fmt.Errorf("failed to resolve host %s: %v", destHost, err)
 	}
+	var dest net.IP
+	for _, ip := range ips {
+		if v4 := ip.To4(); v4 != nil {
+			dest = v4
+			break
+		}
+	}
+	if dest == nil {
+		return fmt.Errorf("no valid IPv4 address found for host %s", destHost)
+	}
+
 	addr := &unix.SockaddrInet4{Port: 0}
 	copy(addr.Addr[:], dest)
 
@@ -224,7 +236,7 @@ func min(a, b int) int {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "pipg send <ip> <id> <message>  or  pipg receive <id>\n")
+		fmt.Fprintf(os.Stderr, "pipg send <dest_host> <id> <message>  or  pipg receive <id>\n")
 		os.Exit(1)
 	}
 
@@ -232,17 +244,17 @@ func main() {
 	switch cmd {
 	case "send":
 		if len(os.Args) < 5 {
-			fmt.Fprintf(os.Stderr, "pipg send <ip> <id> <message>\n")
+			fmt.Fprintf(os.Stderr, "pipg send <dest_host> <id> <message>\n")
 			os.Exit(1)
 		}
-		ip := os.Args[2]
+		host := os.Args[2]
 		id, err := parseID(os.Args[3])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "invalid ID: %v\n", err)
 			os.Exit(1)
 		}
 		message := strings.Join(os.Args[4:], " ")
-		if err := runSend(ip, id, message); err != nil {
+		if err := runSend(host, id, message); err != nil {
 			fmt.Fprintf(os.Stderr, "send error: %v\n", err)
 			os.Exit(1)
 		}
