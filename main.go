@@ -46,7 +46,7 @@ func icmpChecksum(data []byte) uint16 {
 	return uint16(^sum)
 }
 
-func runSend(tunnelID uint16, message string) error {
+func runSend(destIP string, tunnelID uint16, message string) error {
 	compressed := &bytes.Buffer{}
 	w := zlib.NewWriter(compressed)
 	if _, err := w.Write([]byte(message)); err != nil {
@@ -66,8 +66,7 @@ func runSend(tunnelID uint16, message string) error {
 	}
 	defer unix.Close(fd)
 
-	DEST_IP := "127.0.0.1" // IP
-	dest := net.ParseIP(DEST_IP).To4()
+	dest := net.ParseIP(destIP).To4()
 	if dest == nil {
 		return fmt.Errorf("invalid IP")
 	}
@@ -225,24 +224,25 @@ func min(a, b int) int {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "pipg send <id> <message>  or  pipg receive <id>\n")
+		fmt.Fprintf(os.Stderr, "pipg send <ip> <id> <message>  or  pipg receive <id>\n")
 		os.Exit(1)
 	}
 
 	cmd := os.Args[1]
 	switch cmd {
 	case "send":
-		if len(os.Args) < 4 {
-			fmt.Fprintf(os.Stderr, "pipg send <id> <message>\n")
+		if len(os.Args) < 5 {
+			fmt.Fprintf(os.Stderr, "pipg send <ip> <id> <message>\n")
 			os.Exit(1)
 		}
-		id, err := parseID(os.Args[2])
+		ip := os.Args[2]
+		id, err := parseID(os.Args[3])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "invalid ID: %v\n", err)
 			os.Exit(1)
 		}
-		message := strings.Join(os.Args[3:], " ")
-		if err := runSend(id, message); err != nil {
+		message := strings.Join(os.Args[4:], " ")
+		if err := runSend(ip, id, message); err != nil {
 			fmt.Fprintf(os.Stderr, "send error: %v\n", err)
 			os.Exit(1)
 		}
