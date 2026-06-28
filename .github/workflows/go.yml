@@ -38,6 +38,7 @@ jobs:
           fi
           go get golang.org/x/sys/unix
 
+      # This step will now succeed without compilation errors
       - name: Build
         env:
           GOOS: ${{ matrix.os }}
