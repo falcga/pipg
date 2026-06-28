@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -19,7 +20,6 @@ const TUNNEL_ID = 0x1234
 const TIMEOUT = 5 * time.Second      // if not set to 1 second the thing is WAY MORE SUSPICIOUS
 const CHUNK_SIZE = 56                // more than 56 and sussy
 const INTERVAL = 1 * time.Second     // more interval and sussy
-
 
 func icmpEchoRequest(id uint16, seq uint16, payload []byte) []byte {
 	hdr := make([]byte, 8)
@@ -66,7 +66,7 @@ func runSend(tunnelID uint16, message string) error {
 	}
 	defer unix.Close(fd)
 
-	DEST_IP := "127.0.0.1"       // IP
+	DEST_IP := "127.0.0.1" // IP
 	dest := net.ParseIP(DEST_IP).To4()
 	if dest == nil {
 		return fmt.Errorf("invalid IP")
@@ -156,7 +156,7 @@ func runReceive(tunnelID uint16) error {
 
 	for {
 		buf := make([]byte, 65535)
-		n, from, err := unix.Recvfrom(fd, buf, 0)
+		n, _, err := unix.Recvfrom(fd, buf, 0)
 		if err != nil {
 			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
 				mu.Lock()
@@ -193,7 +193,6 @@ func runReceive(tunnelID uint16) error {
 			continue
 		}
 		icmp_type := icmpData[0]
-		icmp_code := icmpData[1]
 		if icmp_type != 8 && icmp_type != 0 {
 			continue
 		}
