@@ -30,12 +30,12 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Prepare Go module
+      - name: Resolve dependencies
         run: |
           if [ ! -f go.mod ]; then
             go mod init pipg
           fi
-          go get golang.org/x/sys/unix
+          go mod tidy
 
       - name: Build
         env:
@@ -63,7 +63,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true # This forces all files into the root of 'dist'
+          merge-multiple: true
 
       - name: Generate checksums
         run: |
